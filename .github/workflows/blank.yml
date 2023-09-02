@@ -1,39 +1,45 @@
-name: Detect Changed Folders
-
+name: Monitor Folder Changes
 on:
-  push:
+  pull_request:
+    types:   
+    - opened
     branches:
-      - main
-
+    - main
 jobs:
-  detect-changes:
+  check-folder-changes:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: List changed files
+      run: |
 
-      - name: Get changed files
-        id: changes
-        run: |
-          git diff --name-only ${{ github.event.before }} ${{ github.sha }} > changed_files.txt
-        continue-on-error: true
+        changed_folders=""
+          base_branch=$(jq -r .pull_request.base.ref "$GITHUB_EVENT_PATH")
+          head_branch=$(jq -r .pull_request.head.ref "$GITHUB_EVENT_PATH")
+          echo "Base branch: $base_branch"
+          echo "Head branch: $head_branch"
+          git fetch origin $base_branch:$base_branch
+          git fetch origin $head_branch:$head_branch
+          git checkout -b temp-branch origin/main
+          git fetch origin $head_branch:$head_branch
+          changed_files=$(git diff --name-only temp-branch..$head_branch)
 
-      - name: Identify changed folders
-        id: identify-changed-folders
-        run: |
-          changed_files=$(cat changed_files.txt)
-          apps_folder="apps"
-          if echo "$changed_files" | grep -q "$apps_folder"; then
-            # Use a loop to iterate through changed files and extract folder names
-            while read -r file; do
-              if [[ -d "$file" && "$file" != "$apps_folder" ]]; then
-                folder_name=$(basename "$file")
-                echo "Changed folder: $folder_name"
+          echo "Changed files:"
+          echo "$changed_files"
+          for file in $changed_files; do
+            echo "Checking file: $file"
+            if [[ $file == apps/* ]]; then
+              # Extract the folder name inside 'apps'
+              folder=$(dirname "$file" | cut -d '/' -f 2)
+              if [[ ! $changed_folders == *"$folder"* ]]; then
+                changed_folders+=" $folder"
+                echo "The folder $folder has changed"
               fi
-            done <<< "$changed_files"
-          else
-            echo "No changes detected in the 'apps' folder."
-          fi
-        continue-on-error: true
-
+            fi
+          done
+          echo "changed_folders=$changed_folders" >> $GITHUB_ENV
+          echo "Final list of folders that were updated:$changed_folders"
+          IFS=" " read -ra folder_array <<< "${changed_folders}"
+          # Print the array
+          echo "Array of folders: ${folder_array[@]}"
