@@ -13,7 +13,9 @@ jobs:
         run: |
           changed_folders=""
           git fetch origin main:main
-          git checkout -b temp-branch main
+           changed_folders=""
+          git fetch origin main:main
+          git checkout main
           changed_files=$(git diff --name-only main)
 
           echo "Changed files:"
