@@ -24,3 +24,4 @@ jobs:
           for folder in "${FOLDERS[@]}"; do
             echo "- $folder"
           done
+
