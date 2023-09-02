@@ -1,26 +1,45 @@
-name: Print Changed Folders
+name: Monitor Folder Changes
 on:
-  push:
+  pull_request:
+    types:   
+    - opened
     branches:
-      - main
-
+    - main
 jobs:
-  print-changed-folders:
+  check-folder-changes:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: List changed files
+      run: |
 
-      - name: Check for changes in apps folder
-        id: check-changes
-        run: |
-          CHANGED_FOLDERS=$(git diff --name-only HEAD^ HEAD | grep '^apps/' | cut -d/ -f2- | cut -d/ -f1 | sort -u)
-          echo "::set-output name=folders::$CHANGED_FOLDERS"
+        changed_folders=""
+          base_branch=$(jq -r .pull_request.base.ref "$GITHUB_EVENT_PATH")
+          head_branch=$(jq -r .pull_request.head.ref "$GITHUB_EVENT_PATH")
+          echo "Base branch: $base_branch"
+          echo "Head branch: $head_branch"
+          git fetch origin $base_branch:$base_branch
+          git fetch origin $head_branch:$head_branch
+          git checkout -b temp-branch origin/main
+          git fetch origin $head_branch:$head_branch
+          changed_files=$(git diff --name-only temp-branch..$head_branch)
 
-      - name: Print folder names
-        run: |
-          echo "Changed folders:"
-          IFS=$'\n' read -rd '' -a FOLDERS <<< "${{ steps.check-changes.outputs.folders }}"
-          for folder in "${FOLDERS[@]}"; do
-            echo "- $folder"
+          echo "Changed files:"
+          echo "$changed_files"
+          for file in $changed_files; do
+            echo "Checking file: $file"
+            if [[ $file == apps/* ]]; then
+              # Extract the folder name inside 'apps'
+              folder=$(dirname "$file" | cut -d '/' -f 2)
+              if [[ ! $changed_folders == *"$folder"* ]]; then
+                changed_folders+=" $folder"
+                echo "The folder $folder has changed"
+              fi
+            fi
           done
+          echo "changed_folders=$changed_folders" >> $GITHUB_ENV
+          echo "Final list of folders that were updated:$changed_folders"
+          IFS=" " read -ra folder_array <<< "${changed_folders}"
+          # Print the array
+          echo "Array of folders: ${folder_array[@]}"
