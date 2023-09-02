@@ -16,7 +16,7 @@ jobs:
            changed_folders=""
           git fetch origin main:main
           git checkout main
-          changed_files=$(git diff --name-only main)
+          changed_files=$(git diff --name-only HEAD^..HEAD)
 
           echo "Changed files:"
           echo "$changed_files"
