@@ -2,29 +2,23 @@ name: Monitor Folder Changes
 on:
   push:
     branches:
-    - main
+      - main
 jobs:
   check-folder-changes:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-    - name: List changed files
-      run: |
-
-        changed_folders=""
-          base_branch=$(jq -r .pull_request.base.ref "$GITHUB_EVENT_PATH")
-          head_branch=$(jq -r .pull_request.head.ref "$GITHUB_EVENT_PATH")
-          echo "Base branch: $base_branch"
-          echo "Head branch: $head_branch"
-          git fetch origin $base_branch:$base_branch
-          git fetch origin $head_branch:$head_branch
-          git checkout -b temp-branch origin/main
-          git fetch origin $head_branch:$head_branch
-          changed_files=$(git diff --name-only temp-branch..$head_branch)
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: List changed files
+        run: |
+          changed_folders=""
+          git fetch origin main:main
+          git checkout -b temp-branch main
+          changed_files=$(git diff --name-only main)
 
           echo "Changed files:"
           echo "$changed_files"
+
           for file in $changed_files; do
             echo "Checking file: $file"
             if [[ $file == apps/* ]]; then
@@ -37,7 +31,7 @@ jobs:
             fi
           done
           echo "changed_folders=$changed_folders" >> $GITHUB_ENV
-          echo "Final list of folders that were updated:$changed_folders"
+          echo "Final list of folders that were updated: $changed_folders"
           IFS=" " read -ra folder_array <<< "${changed_folders}"
           # Print the array
           echo "Array of folders: ${folder_array[@]}"
